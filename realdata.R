@@ -59,6 +59,7 @@ propscore.model <- glm(AD ~ gender + handedness + marital1 + marital2 + marital3
                          educationlength + retirement + age,
                        family=binomial, x=TRUE, data=x_data)
 
+'''
 x_data.trt <- x_data[x_data$AD==1,]
 x_data.ctrl <- x_data[x_data$AD==0,]
 
@@ -131,7 +132,6 @@ logit.propscore <- (predict(propscore.model))[-c(remove.trt.index, remove.ctrl.i
 distmat2 <- addcaliper(distmat, z, logit.propscore) # 184 x 222
 
 
-'''
 #######################
 ## paired matching
 #######################
