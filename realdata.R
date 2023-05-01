@@ -1304,7 +1304,7 @@ getpval_with_x <- function(z, strata, T.obs, B=1000, method, estimator, p_tol=1e
 }
 
 
-group.use <- stratum.myindex.full3.all
+group.use <- stratum.myindex.full.all
 
 estimator <- 'l2'
 
@@ -1481,6 +1481,24 @@ plot(Re(cc[[3]]), Im(cc[[3]]), type='n', xaxt='n', yaxt='n', ann=FALSE, asp=1)
 for (i in 3:4) {
   lines(Re(cc[[i]]), Im(cc[[i]]), col=pal[i-2])
   lines(c(Re(cc[[i]])[50,], Re(cc[[i]])[1,]), c(Im(cc[[i]])[50,], Im(cc[[i]])[1,]), col=pal[i-2])
+}
+
+
+# gray scale
+ltys <- c(2,1)
+
+plot(Re(cc[[1]]), Im(cc[[1]]), type='n', xaxt='n', yaxt='n', ann=FALSE, asp=1)
+
+for (i in 1:2) {
+  lines(Re(cc[[i]]), Im(cc[[i]]), lty=ltys[i])
+  lines(c(Re(cc[[i]])[50,], Re(cc[[i]])[1,]), c(Im(cc[[i]])[50,], Im(cc[[i]])[1,]), lty=ltys[i])
+}
+
+
+plot(Re(cc[[3]]), Im(cc[[3]]), type='n', xaxt='n', yaxt='n', ann=FALSE, asp=1)
+for (i in 3:4) {
+  lines(Re(cc[[i]]), Im(cc[[i]]), lty=ltys[i-2])
+  lines(c(Re(cc[[i]])[50,], Re(cc[[i]])[1,]), c(Im(cc[[i]])[50,], Im(cc[[i]])[1,]), lty=ltys[i-2])
 }
 
 
