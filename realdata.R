@@ -1258,6 +1258,105 @@ getpval <- function(z, strata, T.obs, B=1000, method, estimator, p_tol=1e-10, v_
   return(res)  
 }
 
+getpval_euclid <- function(z, strata, T.obs, B=1000, method, estimator, p_tol=1e-10, v_tol=1e-10, max_iter=200){
+  N <- length(z)
+  L <- length(unique(strata))
+  strata.list <- list()
+  z.list <- list()
+  for(i in 1:L){
+    strata.list[[i]] <- which(strata==i)
+    z.list[[i]] <- z[which(strata==i)]
+  }
+  
+  T.shuffle <- vector(length=B)
+  if(method=="regression"){
+    for(j in 1:B){
+      print(paste("iter:", j))
+      z.shuffle <- vector(length=N)
+      z.shuffle.list <- lapply(z.list, function(x) x[sample(1:length(x))])
+      z.shuffle[unlist(strata.list)] <- unlist(z.shuffle.list)
+      
+      tmp <- geo_reg(manifold, x_data2[,9], y_data2, w = calculateWeight(z.shuffle, strata, sum(z.shuffle)/N, 1-sum(z.shuffle)/N), 
+                     estimator, max_iter = max_iter)
+      T.shuffle[j] <- sqrt(abs(sum(Conj(tmp$V)*tmp$V)))
+    }
+  } else if(method=="dist"){
+    for(j in 1:B){
+      print(paste("iter:", j))
+      z.shuffle <- vector(length=N)
+      z.shuffle.list <- lapply(z.list, function(x) x[sample(1:length(x))])
+      z.shuffle[unlist(strata.list)] <- unlist(z.shuffle.list)
+      
+      T.shuffle[j] <- geo_dist(manifold="euclidean",intrinsic_location(manifold="euclidean", y_data2, w = calculateWeight.T(z.shuffle, strata), estimator, p_tol=p_tol, V_tol=v_tol),
+                               intrinsic_location(manifold="euclidean", y_data2, w = calculateWeight.C(z.shuffle, strata), estimator, p_tol=p_tol, V_tol=v_tol))
+    }
+  }
+  
+  p.val <- mean(T.shuffle >= T.obs)
+  
+  res <- list()
+  res$T.shuffle <- T.shuffle
+  res$pval <- p.val
+  return(res)  
+}
+
+getpval_euclid2 <- function(z, strata, T.obs, B=1000, method, estimator, p_tol=1e-10, v_tol=1e-10, max_iter=200){
+  N <- length(z)
+  L <- length(unique(strata))
+  strata.list <- list()
+  z.list <- list()
+  for(i in 1:L){
+    strata.list[[i]] <- which(strata==i)
+    z.list[[i]] <- z[which(strata==i)]
+  }
+  
+  T.shuffle <- vector(length=B)
+  if(method=="regression"){
+    for(j in 1:B){
+      print(paste("iter:", j))
+      z.shuffle <- vector(length=N)
+      z.shuffle.list <- lapply(z.list, function(x) x[sample(1:length(x))])
+      z.shuffle[unlist(strata.list)] <- unlist(z.shuffle.list)
+      
+      tmp <- geo_reg(manifold, x_data2[,9], y_data2, w = calculateWeight(z.shuffle, strata, sum(z.shuffle)/N, 1-sum(z.shuffle)/N), 
+                     estimator, max_iter = max_iter)
+      T.shuffle[j] <- sqrt(abs(sum(Conj(tmp$V)*tmp$V)))
+    }
+  } else if(method=="dist"){
+    for(j in 1:B){
+      print(paste("iter:", j))
+      z.shuffle <- vector(length=N)
+      z.shuffle.list <- lapply(z.list, function(x) x[sample(1:length(x))])
+      z.shuffle[unlist(strata.list)] <- unlist(z.shuffle.list)
+      
+      if(estimator=="l2"){
+        T.shuffle[j] <- sqrt(sum((Mod(colSums(t(y_data2)*calculateWeight.T(z.shuffle, strata)) - colSums(t(y_data2)*calculateWeight.C(z.shuffle, strata))))^2))
+      } else{
+        re.median.T <- c()
+        im.median.T <- c()
+        re.median.C <- c()
+        im.median.C <- c()
+        
+        for(i in 1:nrow(y_data2)){
+          re.median.T[i] <- weighted.median(Re(unlist(y_data2[i,])), calculateWeight.T(z.shuffle, strata))
+          im.median.T[i] <- weighted.median(Im(unlist(y_data2[i,])), calculateWeight.T(z.shuffle, strata))
+          re.median.C[i] <- weighted.median(Re(unlist(y_data2[i,])), calculateWeight.C(z.shuffle, strata))
+          im.median.C[i] <- weighted.median(Im(unlist(y_data2[i,])), calculateWeight.C(z.shuffle, strata))
+        }
+        T.shuffle[j] <- sqrt(sum((Mod(complex(real=re.median.T, imaginary=im.median.T) - complex(real=re.median.C, imaginary=im.median.C)))^2))
+      }
+    }
+  }
+  
+  p.val <- mean(T.shuffle >= T.obs)
+  
+  res <- list()
+  res$T.shuffle <- T.shuffle
+  res$pval <- p.val
+  return(res)  
+}
+
+
 getpval_with_x <- function(z, strata, T.obs, B=1000, method, estimator, p_tol=1e-10, v_tol=1e-10, max_iter=200){
   N <- length(z)
   L <- length(unique(strata))
@@ -1317,6 +1416,10 @@ write.csv(intrinsic_location(manifold, y_data2, w = calculateWeight.T(z.all, gro
 write.csv(intrinsic_location(manifold, y_data2, w = calculateWeight.C(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6), 
           file="res/T1_L2_ctrl.csv", row.names=FALSE)
 
+T1.l2.euclid <- geo_dist(manifold="euclidean",intrinsic_location(manifold="euclidean", y_data2, w = calculateWeight.T(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6),
+                         intrinsic_location(manifold="euclidean", y_data2, w = calculateWeight.C(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6))
+T1.l2.euclid2 <- sqrt(sum((Mod(colSums(t(y_data2)*calculateWeight.T(z.all, group.use)) - colSums(t(y_data2)*calculateWeight.C(z.all, group.use))))^2))
+
 # ttmp <- read.csv("T1_L2_trt.csv", header=TRUE)
 
 # regression with only z
@@ -1324,6 +1427,11 @@ T2.res.l2 <- geo_reg(manifold, x_data2[,9], y_data2, w = calculateWeight(z.all, 
                      estimator, max_iter = 200)
 
 T2.l2 <- sqrt(abs(sum(Conj(T2.res.l2$V)*T2.res.l2$V)))
+
+T2.res.l2.euclid <- geo_reg(manifold="euclidean", x_data2[,9], y_data2_real, w = calculateWeight(z.all, group.use, sum(z.all)/length(z.all), 1-sum(z.all)/length(z.all)), 
+                            estimator="l2", max_iter = 200, p_tol = 1e-20, V_tol = 1e-20)
+
+T2.l2.euclid <- sqrt(abs(sum(Conj(T2.res.l2.euclid$V)*T2.res.l2.euclid$V)))
 
 # regression with z & x
 # T3.res.l2 <- geo_reg(manifold, x_data2, y_data2, w = calculateWeight(z.all, group.use, sum(z.all)/length(z.all), 1-sum(z.all)/length(z.all)), estimator)
@@ -1333,6 +1441,9 @@ T2.l2 <- sqrt(abs(sum(Conj(T2.res.l2$V)*T2.res.l2$V)))
 
 res.dist.l2 <- getpval(z.all, group.use, T1.l2, B=1000, method="dist", estimator = 'l2', p_tol=1e-6, v_tol=1e-6)
 # res.reg.l2 <- getpval_with_x(z.all, group.use, T3.l2, B=1000, method="regression", estimator = 'l2', max_iter=200)
+
+res.dist.l2.euclid <- getpval_euclid(z.all, group.use, T1.l2.euclid, B=1000, method="dist", estimator = 'l2', p_tol=1e-6, v_tol=1e-6)
+res.dist.l2.euclid2 <- getpval_euclid2(z.all, group.use, T1.l2.euclid2, B=1000, method="dist", estimator = 'l2', p_tol=1e-6, v_tol=1e-6)
 
 
 estimator <- 'l1'
@@ -1346,10 +1457,39 @@ write.csv(intrinsic_location(manifold, y_data2, w = calculateWeight.T(z.all, gro
 write.csv(intrinsic_location(manifold, y_data2, w = calculateWeight.C(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6), 
           file="res/T1_L1_ctrl.csv", row.names=FALSE)
 
+re.median.T <- c()
+im.median.T <- c()
+re.median.C <- c()
+im.median.C <- c()
+
+for(i in 1:nrow(y_data2)){
+  re.median.T[i] <- weighted.median(Re(unlist(y_data2[i,])), calculateWeight.T(z.all, group.use))
+  im.median.T[i] <- weighted.median(Im(unlist(y_data2[i,])), calculateWeight.T(z.all, group.use))
+  re.median.C[i] <- weighted.median(Re(unlist(y_data2[i,])), calculateWeight.C(z.all, group.use))
+  im.median.C[i] <- weighted.median(Im(unlist(y_data2[i,])), calculateWeight.C(z.all, group.use))
+}
+
+y_data2_real <- matrix(0, nrow=100, ncol=409)
+for(i in 1:409){
+  y_data2_real[1:50,i] <- Re(y_data2[,i])
+  y_data2_real[51:100,i] <- Im(y_data2[,i])
+}
+
+T1.l1.euclid0 <- geo_dist(manifold="euclidean",intrinsic_location(manifold="euclidean", y_data2_real, w = calculateWeight.T(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6),
+                          intrinsic_location(manifold="euclidean", y_data2_real, w = calculateWeight.C(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6))
+
+T1.l1.euclid <- geo_dist(manifold="euclidean",intrinsic_location(manifold="euclidean", y_data2, w = calculateWeight.T(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6),
+                         intrinsic_location(manifold="euclidean", y_data2, w = calculateWeight.C(z.all, group.use), estimator, p_tol=1e-6, V_tol=1e-6))
+T1.l1.euclid2 <- sqrt(sum((Mod(complex(real=re.median.T, imaginary=im.median.T) - complex(real=re.median.C, imaginary=im.median.C)))^2))
+
 
 T2.res.l1 <- geo_reg(manifold, x_data2[,9], y_data2, w = calculateWeight(z.all, group.use, sum(z.all)/length(z.all), 1-sum(z.all)/length(z.all)), estimator, p_tol=1e-6, V_tol=1e-6)
 
 T2.l1 <- sqrt(abs(sum(Conj(T2.res.l1$V)*T2.res.l1$V)))
+
+T2.res.l1.euclid <- geo_reg(manifold="euclidean", x_data2[,9], y_data2, w = calculateWeight(z.all, group.use, sum(z.all)/length(z.all), 1-sum(z.all)/length(z.all)), estimator, p_tol=1e-6, V_tol=1e-6)
+T2.res.l1.euclid <- geo_reg(manifold="euclidean", x_data2[,9], y_data2_real, w = calculateWeight(z.all, group.use, sum(z.all)/length(z.all), 1-sum(z.all)/length(z.all)), estimator, p_tol=1e-6, V_tol=1e-6)
+T2.l1.euclid <- sqrt(abs(sum(Conj(T2.res.l1.euclid$V)*T2.res.l1.euclid$V)))
 
 # T3.res.l1 <- geo_reg(manifold, x_data2, y_data2, w = calculateWeight(z.all, group.use, sum(z.all)/length(z.all), 1-sum(z.all)/length(z.all)), estimator)
 # 
@@ -1359,6 +1499,9 @@ T2.l1 <- sqrt(abs(sum(Conj(T2.res.l1$V)*T2.res.l1$V)))
 
 res.dist.l1 <- getpval(z.all, group.use, T1.l1, B=1000, method="dist", estimator = 'l1', p_tol=1e-6, v_tol=1e-6)
 # res.reg.l1 <- getpval_with_x(z.all, group.use, T3.l1, B=1000, method="regression", estimator = 'l1', max_iter=200)
+set.seed(1)
+res.dist.l1.euclid <- getpval_euclid(z.all, group.use, T1.l1.euclid, B=1000, method="dist", estimator = 'l1', p_tol=1e-6, v_tol=1e-6)
+res.dist.l1.euclid2 <- getpval_euclid2(z.all, group.use, T1.l1.euclid2, B=1000, method="dist", estimator = 'l1', p_tol=1e-6, v_tol=1e-6)
 
 
 # AATE result
@@ -1601,3 +1744,118 @@ res.bstrp <- cbind(rbind(bstrp.pivot.ci.l2, bstrp.pivot.ci.l1), c(T2.l2, T2.l1))
 colnames(res.bstrp) <- c("Lower", "Upper", "Estimate")
 rownames(res.bstrp) <- c("L2", "L1")
 res.bstrp
+
+
+## confidence interval  in Euclidean method
+M <- 1000 # number of bootstrap samples
+N <- nrow(x_data) # number of data
+T2.l2.bstrp.list.euclid <- c()
+T2.l1.bstrp.list.euclid <- c()
+set.seed(10)
+for(i in 1:M){
+  print(i)
+  
+  bstrp.sample <- sort(sample(1:N, N, replace=TRUE))
+  x_data.bstrp <- x_data[bstrp.sample,]
+  
+  propscore.model.bstrp <- glm(AD ~ gender + handedness + marital1 + marital2 + marital3 + 
+                                 educationlength + retirement + age,
+                               family=binomial, x=TRUE, data=x_data.bstrp)
+  
+  Xmat.all.bstrp <- (propscore.model.bstrp$x[,-1])
+  z.all.bstrp <- x_data.bstrp$AD
+  
+  # Rank based Mahalanobis distance
+  distmat.all.bstrp <- rankmahal(z.all.bstrp, Xmat.all.bstrp)
+  # Add caliper
+  logit.propscore.all.bstrp <- (predict(propscore.model.bstrp))
+  distmat2.all.bstrp <- addcaliper(distmat.all.bstrp, z.all.bstrp, logit.propscore.all.bstrp) # 186 x 223
+  
+  matchvec.full3.all.bstrp <- fullmatch(distmat2.all.bstrp, max.controls = 3, min.controls = 1/3)
+  
+  treated.subject.index.full3.all.bstrp <- rep(0,sum(z.all.bstrp==1))
+  # The subject indices in the order of matchvec
+  matchedset.index.full3.all.bstrp <- substr(matchvec.full3.all.bstrp, start=3, stop=10) # group name
+  matchedset.index.full3.numeric.all.bstrp <- as.numeric(matchedset.index.full3.all.bstrp) # group name (numeric)
+  subjects.match.order.full3.all.bstrp <- as.numeric(names(matchvec.full3.all.bstrp)) # subject indices
+  
+  # Create a numeric variable for which stratum each unit belongs to
+  # 0 denotes that the unit was not matched
+  # there is not units not matched b/c we use full matching
+  stratum.short.full3.all.bstrp <- substr(matchvec.full3.all.bstrp, start=3, stop=10)
+  stratum.full3.numeric.all.bstrp <- as.numeric(stratum.short.full3.all.bstrp) # i-th element : group name of unit i
+  
+  # Reassign numbers to each stratum that go from 1,..., no. of straum
+  sort.unique.stratum.full3.all.bstrp <- sort(unique(stratum.full3.numeric.all.bstrp)) # 140 groups
+  stratum.myindex.matchvecorder.full3.all.bstrp <- rep(0,length(stratum.full3.numeric.all.bstrp))
+  for(i in 1:length(sort.unique.stratum.full3.all.bstrp)){
+    stratum.myindex.matchvecorder.full3.all.bstrp[stratum.full3.numeric.all.bstrp==sort.unique.stratum.full3.all.bstrp[i]] <- i  # 140 matched group sense indices / i-th element : group name (1~140) of unit i
+  }
+  
+  stratum.myindex.full3.all.bstrp <- rep(0, length(stratum.myindex.matchvecorder.full3.all.bstrp)) # length 409
+  stratum.myindex.full3.all.bstrp[subjects.match.order.full3.all.bstrp] <- stratum.myindex.matchvecorder.full3.all.bstrp # i-th element : matched group index for unit i (1~140)
+  
+  stratumStructure(matchvec.full3.all.bstrp)
+  # 3:1 2:1 1:1 1:2 1:3 
+  # 16  14  63  11  36 
+  
+  
+  # Calculate the standardized differences
+  Xmat.matchorder.full3.all.bstrp <- Xmat.all[subjects.match.order.full3.all.bstrp,]
+  
+  std.diff.before.all.bstrp <- rep(0, ncol(Xmat.matchorder.full3.all.bstrp))
+  std.diff.after.full3.all.bstrp <- rep(0, ncol(Xmat.matchorder.full3.all.bstrp))
+  names(std.diff.before.all.bstrp) <- names(Xmat.matchorder.full3.all.bstrp[1,])
+  names(std.diff.after.full3.all.bstrp) <- names(Xmat.matchorder.full3.all.bstrp[1,])
+  
+  for(i in 1:ncol(Xmat.matchorder.full3.all.bstrp)){
+    temp.stand.diff.bstrp <- standardized.diff.func(Xmat.all.bstrp[,i], z.all.bstrp, stratum.myindex.full3.all.bstrp)
+    std.diff.before.all.bstrp[i] <- temp.stand.diff.bstrp$std.diff.before.matching
+    std.diff.after.full3.all.bstrp[i] <- temp.stand.diff.bstrp$std.diff.after.matching
+  }
+  
+  fullmatch.std.diff3.all.bstrp <- cbind(std.diff.before.all.bstrp, std.diff.after.full3.all.bstrp)
+  
+  group.use.bstrp <- stratum.myindex.full3.all.bstrp
+  
+  estimator <- 'l2'
+  # regression with only z
+  # T2.l2.bstrp.euclid <- sqrt(sum((Mod(colSums(t(y_data2)*calculateWeight.T(z.all.bstrp, group.use.bstrp)) - colSums(t(y_data2)*calculateWeight.C(z.all.bstrp, group.use.bstrp))))^2))
+  T2.l2.bstrp.euclid <- geo_dist(manifold="euclidean",intrinsic_location(manifold="euclidean", y_data2[,bstrp.sample], w = calculateWeight.T(z.all.bstrp, group.use.bstrp), estimator, p_tol=1e-6, V_tol=1e-6),
+                                 intrinsic_location(manifold="euclidean", y_data2[,bstrp.sample], w = calculateWeight.C(z.all.bstrp, group.use.bstrp), estimator, p_tol=1e-6, V_tol=1e-6))
+  
+  T2.l2.bstrp.list.euclid <- c(T2.l2.bstrp.list.euclid, T2.l2.bstrp.euclid)
+  
+  estimator <- 'l1'
+  # re.median.T.bstrp <- c()
+  # im.median.T.bstrp <- c()
+  # re.median.C.bstrp <- c()
+  # im.median.C.bstrp <- c()
+  # 
+  # for(i in 1:nrow(y_data2)){
+  #   re.median.T.bstrp[i] <- weighted.median(Re(unlist(y_data2[i,])), calculateWeight.T(z.all.bstrp, group.use.bstrp))
+  #   im.median.T.bstrp[i] <- weighted.median(Im(unlist(y_data2[i,])), calculateWeight.T(z.all.bstrp, group.use.bstrp))
+  #   re.median.C.bstrp[i] <- weighted.median(Re(unlist(y_data2[i,])), calculateWeight.C(z.all.bstrp, group.use.bstrp))
+  #   im.median.C.bstrp[i] <- weighted.median(Im(unlist(y_data2[i,])), calculateWeight.C(z.all.bstrp, group.use.bstrp))
+  # }
+  # 
+  # T2.l1.bstrp.euclid <- sqrt(sum((Mod(complex(real=re.median.T.bstrp, imaginary=im.median.T.bstrp) - complex(real=re.median.C.bstrp, imaginary=im.median.C.bstrp)))^2))
+  T2.l1.bstrp.euclid <- geo_dist(manifold="euclidean",intrinsic_location(manifold="euclidean", y_data2[,bstrp.sample], w = calculateWeight.T(z.all.bstrp, group.use.bstrp), estimator, p_tol=1e-6, V_tol=1e-6),
+                                 intrinsic_location(manifold="euclidean", y_data2[,bstrp.sample], w = calculateWeight.C(z.all.bstrp, group.use.bstrp), estimator, p_tol=1e-6, V_tol=1e-6))
+  
+  T2.l1.bstrp.list.euclid <- c(T2.l1.bstrp.list.euclid, T2.l1.bstrp.euclid)
+}
+
+bstrp.pivot.ci.l2.euclid <- as.vector(c(2*T1.l2.euclid - quantile(T2.l2.bstrp.list.euclid, 0.975), 2*T1.l2.euclid - quantile(T2.l2.bstrp.list.euclid, 0.025)))
+bstrp.pivot.ci.l1.euclid <- as.vector(c(2*T1.l1.euclid - quantile(T2.l1.bstrp.list.euclid, 0.975), 2*T1.l1.euclid - quantile(T2.l1.bstrp.list.euclid, 0.025)))
+
+res.bstrp.euclid <- cbind(rbind(bstrp.pivot.ci.l2.euclid, bstrp.pivot.ci.l1.euclid), c(T1.l2.euclid, T1.l1.euclid))
+colnames(res.bstrp.euclid) <- c("Lower", "Upper", "Estimate")
+rownames(res.bstrp.euclid) <- c("L2", "L1")
+res.bstrp.euclid
+
+
+
+bstrp.pivot.ci.l2.euclid_seed1 <- bstrp.pivot.ci.l2.euclid
+bstrp.pivot.ci.l1.euclid_seed1 <- bstrp.pivot.ci.l1.euclid
+

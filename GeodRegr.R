@@ -1,7 +1,7 @@
 # Inner product. v1 and v2 should either be matrices of the same size or one of them (v1 in the hyperbolic case) should be a matrix and the other a vector of length equal to the number of rows in the matrix.
 ip <- function(manifold, v1, v2) {
   if ((manifold == 'euclidean') | (manifold == 'sphere')) {
-    result <- colSums(v1 * v2)
+    result <- colSums(v1 * Conj(v2))
   } else if (manifold == 'hyperbolic') {
     v1[1, ] <- -v1[1, ]
     result <- colSums(v1 * v2)
